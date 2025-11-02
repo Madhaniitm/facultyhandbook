@@ -174,6 +174,7 @@
     const followUpPatterns = [
       /^(what about|how about|tell me more|more details|explain|elaborate)/i,
       /^(that|this|it|they|those|these)\s/i,
+      /(tell me more|more on|more about|elaborate on|explain this|what about this)/i,
       /\?$/  // Ends with question mark + short query
     ];
 
@@ -184,6 +185,84 @@
 
     // Check patterns
     return followUpPatterns.some(pattern => pattern.test(query.trim()));
+  }
+
+  // Rephrase follow-up question using AI into a complete standalone question for better search
+  async function rephraseFollowUpQuestion(query, history) {
+    // Get the last few turns to understand context
+    const recentHistory = history.slice(-6); // Last 3 exchanges
+
+    // Format conversation history for the AI
+    const conversationContext = recentHistory.map(turn => {
+      return `${turn.role === 'user' ? 'User' : 'Assistant'}: ${turn.content}`;
+    }).join('\n');
+
+    // If no API endpoint configured, use simple fallback
+    if (!CONFIG.apiEndpoint) {
+      // Simple fallback: just return the last user question
+      for (let i = recentHistory.length - 1; i >= 0; i--) {
+        if (recentHistory[i].role === 'user') {
+          return recentHistory[i].content;
+        }
+      }
+      return query;
+    }
+
+    try {
+      // Call API to rephrase the question
+      const prompt = `You are a question analyzer. Given conversation history and a follow-up question, determine if the question needs rephrasing.
+
+Conversation History:
+${conversationContext}
+
+Follow-up Question: ${query}
+
+Instructions:
+1. First, check if the follow-up question is ALREADY a complete standalone question that doesn't rely on conversation context
+2. If it's already standalone (contains all necessary context/keywords), return it EXACTLY as is
+3. If it uses pronouns (this, that, it) or vague references (tell me more, elaborate), rephrase it into a complete standalone question that includes the specific topic from the conversation
+4. Keep the rephrased question concise (1-2 sentences max)
+5. Only output the question itself, nothing else
+
+Rephrased Question:`;
+
+      const response = await fetch(CONFIG.apiEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          query: prompt,
+          context: [{
+            title: 'Rephrasing Task',
+            content: 'You are helping rephrase follow-up questions for better search. Keep responses brief and to the point. Output only the rephrased question, nothing else.'
+          }],
+          conversationHistory: [],
+          apiType: CONFIG.apiType
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Rephrase API failed');
+      }
+
+      const data = await response.json();
+      const rephrased = data.answer.trim();
+
+      console.log('[Chatbot] AI Rephrased:', rephrased);
+      return rephrased;
+
+    } catch (error) {
+      console.warn('[Chatbot] Failed to rephrase with AI, using fallback:', error);
+
+      // Fallback: use the last user question
+      for (let i = recentHistory.length - 1; i >= 0; i--) {
+        if (recentHistory[i].role === 'user') {
+          return recentHistory[i].content;
+        }
+      }
+      return query;
+    }
   }
 
   // ============================================
@@ -481,23 +560,23 @@
     // Check if it's a follow-up question
     const isFollowUp = isFollowUpQuestion(query);
 
-    // If follow-up, include previous context
-    let enhancedQuery = query;
+    // If follow-up, rephrase into a complete standalone question for search
+    let searchQuery = query;
     if (isFollowUp && conversationHistory.length > 0) {
-      const lastTurn = conversationHistory[conversationHistory.length - 1];
-      if (lastTurn.role === 'assistant') {
-        enhancedQuery = `Previous answer: ${lastTurn.content.substring(0, 200)}...\n\nFollow-up question: ${query}`;
-      }
+      searchQuery = await rephraseFollowUpQuestion(query, conversationHistory);
+      console.log('[Chatbot] Follow-up detected. Original:', query, '| Search query:', searchQuery);
     }
 
     // Step 1: Add user query to conversation history BEFORE making API call
+    // (Store the ORIGINAL question, not the rephrased one)
     conversationHistory.push({
       role: 'user',
       content: query
     });
 
-    // Step 2: Search for relevant content (async for hybrid search)
-    const relevantContent = await searchContent(enhancedQuery);
+    // Step 2: Search for relevant content using the rephrased query
+    // This helps find better context for follow-up questions
+    const relevantContent = await searchContent(searchQuery);
 
     if (relevantContent.length === 0) {
       const noResultResponse = {
