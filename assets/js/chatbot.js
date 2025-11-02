@@ -824,7 +824,13 @@
 
   // Call secure proxy endpoint (RECOMMENDED - API key stays on server)
   async function callSecureProxy(query, context) {
-    const conversationContext = getConversationContext();
+    // Format conversation history for Gemini API format
+    const formattedHistory = conversationHistory.slice(-CONFIG.maxConversationTurns * 2).map(turn => {
+      return {
+        role: turn.role,
+        parts: [{ text: turn.content }]
+      };
+    });
 
     const response = await fetch(CONFIG.apiEndpoint, {
       method: 'POST',
@@ -834,7 +840,7 @@
       body: JSON.stringify({
         query: query,
         context: context,
-        conversationHistory: conversationContext,
+        conversationHistory: formattedHistory,
         apiType: CONFIG.apiType
       })
     });

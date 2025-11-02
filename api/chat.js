@@ -103,7 +103,13 @@ IMPORTANT RULES:
 3. Only use information from the provided context below
 4. If the answer is not in the context, say so clearly
 5. Be conversational and helpful
-6. If there's conversation history, use it to understand follow-up questions
+
+HANDLING FOLLOW-UP QUESTIONS:
+- When the user asks follow-up questions like "tell me more", "what about this", "elaborate on that", etc., ALWAYS refer to the Previous Conversation below to understand what they're asking about
+- Use pronouns like "this", "that", "it", "they" by referring to the most recent topic discussed in the conversation history
+- If the current question contains words like "this", "that", "more", "elaborate", check the Previous Conversation to understand the context
+- Build upon previous answers and maintain conversation continuity
+- NEVER say you don't have access to previous conversation - the Previous Conversation section below contains everything discussed
 
 ${formattedHistory ? `Previous Conversation:\n${formattedHistory}\n\n` : ''}
 
@@ -112,7 +118,7 @@ ${formattedContext}
 
 User Question: ${query}
 
-Provide a detailed answer:`;
+${formattedHistory ? 'Remember: Use the Previous Conversation above to understand any follow-up references like "this", "that", "more details", etc.\n\n' : ''}Provide a detailed answer:`;
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
