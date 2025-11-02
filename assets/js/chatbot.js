@@ -54,11 +54,203 @@
     // Initialize embedding model for query encoding
     initEmbeddingModel();
 
+    // Initialize conversation memory
+    initConversation();
+
     // Setup event listeners
     setupEventListeners();
 
     // Load API configuration from meta tags or config
     loadAPIConfig();
+  }
+
+  // ============================================
+  // CONVERSATION MEMORY MANAGEMENT
+  // ============================================
+
+  // Initialize or restore conversation
+  function initConversation() {
+    // Generate session ID if not exists
+    if (!sessionId) {
+      sessionId = 'session_' + Date.now();
+    }
+
+    // Try to restore from sessionStorage
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+        conversationHistory = data.history || [];
+        sessionId = data.sessionId || sessionId;
+
+        console.log('[Chatbot] Restored conversation:', conversationHistory.length, 'messages');
+
+        // Restore messages in UI
+        restoreConversationUI();
+      } catch (e) {
+        console.warn('[Chatbot] Could not restore conversation:', e);
+      }
+    }
+  }
+
+  // Save conversation to sessionStorage
+  function saveConversation() {
+    try {
+      const data = {
+        sessionId: sessionId,
+        history: conversationHistory,
+        timestamp: Date.now()
+      };
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.warn('[Chatbot] Could not save conversation:', e);
+    }
+  }
+
+  // Restore conversation messages in UI
+  function restoreConversationUI() {
+    // Clear existing messages except welcome
+    const messages = chatbotMessages.querySelectorAll('.chatbot-message:not(.welcome-message)');
+    messages.forEach(msg => msg.remove());
+
+    // Add historical messages
+    conversationHistory.forEach(turn => {
+      if (turn.role === 'user') {
+        addUserMessage(turn.content, false); // false = don't scroll yet
+      } else {
+        addBotMessageSync(turn.content, turn.references || []);
+
+        // Add suggestions if any
+        if (turn.suggestions && turn.suggestions.length > 0) {
+          addSuggestions(turn.suggestions);
+        }
+      }
+    });
+
+    // Scroll to bottom after all restored
+    chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+  }
+
+  // Clear conversation (e.g., on user request)
+  function clearConversation() {
+    conversationHistory = [];
+    sessionStorage.removeItem(STORAGE_KEY);
+
+    // Clear UI except welcome message
+    const messages = chatbotMessages.querySelectorAll('.chatbot-message:not(.welcome-message)');
+    messages.forEach(msg => msg.remove());
+
+    console.log('[Chatbot] Conversation cleared');
+  }
+
+  // ============================================
+  // SMART CONTEXT MANAGEMENT
+  // ============================================
+
+  // Get conversation context for AI (optimized for tokens)
+  function getConversationContext() {
+    if (conversationHistory.length === 0) {
+      return '';
+    }
+
+    // Keep only last N turns to save tokens
+    const recentHistory = conversationHistory.slice(-CONFIG.maxConversationTurns * 2);
+
+    // Format for AI
+    const contextMessages = recentHistory.map(turn => {
+      if (turn.role === 'user') {
+        return `User: ${turn.content}`;
+      } else {
+        // For assistant, just show the answer (not references)
+        return `Assistant: ${turn.content}`;
+      }
+    }).join('\n');
+
+    return contextMessages;
+  }
+
+  // Detect if current query is a follow-up
+  function isFollowUpQuestion(query) {
+    const followUpPatterns = [
+      /^(what about|how about|tell me more|more details|explain|elaborate)/i,
+      /^(that|this|it|they|those|these)\s/i,
+      /\?$/  // Ends with question mark + short query
+    ];
+
+    // Check if query is short and ends with question mark (likely follow-up)
+    if (query.trim().split(/\s+/).length <= 3 && query.includes('?')) {
+      return true;
+    }
+
+    // Check patterns
+    return followUpPatterns.some(pattern => pattern.test(query.trim()));
+  }
+
+  // ============================================
+  // SUGGESTED QUESTIONS
+  // ============================================
+
+  // Generate suggested follow-up questions based on topic
+  function generateSuggestions(topic, references) {
+    const suggestions = [];
+
+    // Topic-based suggestions
+    if (topic.toLowerCase().includes('leave')) {
+      suggestions.push(
+        "How do I apply for leave?",
+        "What are the different types of leaves?",
+        "Can I carry forward unused leave?"
+      );
+    } else if (topic.toLowerCase().includes('research') || topic.toLowerCase().includes('phd')) {
+      suggestions.push(
+        "What are the research scholar timelines?",
+        "How do I find research funding?",
+        "What are the thesis requirements?"
+      );
+    } else if (topic.toLowerCase().includes('teaching') || topic.toLowerCase().includes('course')) {
+      suggestions.push(
+        "How do I offer a new course?",
+        "What is the grading system?",
+        "How do I handle student feedback?"
+      );
+    } else if (topic.toLowerCase().includes('salary') || topic.toLowerCase().includes('pay')) {
+      suggestions.push(
+        "What allowances do I get?",
+        "How do I understand my payslip?",
+        "What are the deductions?"
+      );
+    } else {
+      // Generic suggestions based on references
+      if (references && references.length > 0) {
+        suggestions.push(
+          "Tell me more about this topic",
+          "Are there any related policies?",
+          "What are the important deadlines?"
+        );
+      }
+    }
+
+    return suggestions.slice(0, 3); // Max 3 suggestions
+  }
+
+  // Add suggestion chips to UI
+  function addSuggestions(suggestions) {
+    const suggestionsContainer = document.createElement('div');
+    suggestionsContainer.className = 'chatbot-suggestions';
+
+    suggestions.forEach(text => {
+      const chip = document.createElement('button');
+      chip.className = 'suggestion-chip';
+      chip.textContent = text;
+      chip.onclick = () => {
+        chatbotInput.value = text;
+        handleSendMessage();
+      };
+      suggestionsContainer.appendChild(chip);
+    });
+
+    chatbotMessages.appendChild(suggestionsContainer);
+    chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
   }
 
   // Load search data from Jekyll's search index
@@ -263,6 +455,11 @@
       const response = await processQuery(message);
       hideTypingIndicator();
       await addBotMessage(response.answer, response.references);
+
+      // Add suggestions if available
+      if (response.suggestions && response.suggestions.length > 0) {
+        addSuggestions(response.suggestions);
+      }
     } catch (error) {
       console.error('[Chatbot] Error processing query:', error);
       hideTypingIndicator();
@@ -281,17 +478,49 @@
       };
     }
 
-    // Step 1: Search for relevant content (async for hybrid search)
-    const relevantContent = await searchContent(query);
+    // Check if it's a follow-up question
+    const isFollowUp = isFollowUpQuestion(query);
 
-    if (relevantContent.length === 0) {
-      return {
-        answer: "I couldn't find any relevant information in the Faculty Handbook for your question. Could you try rephrasing it or ask about a different topic?",
-        references: []
-      };
+    // If follow-up, include previous context
+    let enhancedQuery = query;
+    if (isFollowUp && conversationHistory.length > 0) {
+      const lastTurn = conversationHistory[conversationHistory.length - 1];
+      if (lastTurn.role === 'assistant') {
+        enhancedQuery = `Previous answer: ${lastTurn.content.substring(0, 200)}...\n\nFollow-up question: ${query}`;
+      }
     }
 
-    // Step 2: Generate response based on retrieved content
+    // Step 1: Add user query to conversation history BEFORE making API call
+    conversationHistory.push({
+      role: 'user',
+      content: query
+    });
+
+    // Step 2: Search for relevant content (async for hybrid search)
+    const relevantContent = await searchContent(enhancedQuery);
+
+    if (relevantContent.length === 0) {
+      const noResultResponse = {
+        answer: "I couldn't find any relevant information in the Faculty Handbook for your question. Could you try rephrasing it or ask about a different topic?",
+        references: [],
+        suggestions: [
+          "How do I apply for leave?",
+          "What are teaching requirements?",
+          "Tell me about research funding"
+        ]
+      };
+      // Add assistant response to history
+      conversationHistory.push({
+        role: 'assistant',
+        content: noResultResponse.answer,
+        references: noResultResponse.references,
+        suggestions: noResultResponse.suggestions
+      });
+      saveConversation();
+      return noResultResponse;
+    }
+
+    // Step 3: Generate response based on retrieved content
     let response;
     if (CONFIG.useLocalMode) {
       response = await generateLocalResponse(query, relevantContent);
@@ -299,20 +528,26 @@
       response = await generateAPIResponse(query, relevantContent);
     }
 
-    // Step 3: Add to conversation history
-    conversationHistory.push({
-      role: 'user',
-      content: query
-    });
+    // Step 4: Add suggested questions
+    if (CONFIG.suggestionsEnabled) {
+      response.suggestions = generateSuggestions(query, relevantContent);
+    }
+
+    // Step 5: Add assistant response to conversation history
     conversationHistory.push({
       role: 'assistant',
       content: response.answer,
-      references: response.references
+      references: response.references,
+      suggestions: response.suggestions
     });
 
-    // Keep only last 10 exchanges
-    if (conversationHistory.length > 20) {
-      conversationHistory = conversationHistory.slice(-20);
+    // Save to storage
+    saveConversation();
+
+    // Step 5: Keep history manageable
+    if (conversationHistory.length > CONFIG.maxConversationTurns * 2) {
+      conversationHistory = conversationHistory.slice(-CONFIG.maxConversationTurns * 2);
+      saveConversation();
     }
 
     return response;
@@ -589,6 +824,8 @@
 
   // Call secure proxy endpoint (RECOMMENDED - API key stays on server)
   async function callSecureProxy(query, context) {
+    const conversationContext = getConversationContext();
+
     const response = await fetch(CONFIG.apiEndpoint, {
       method: 'POST',
       headers: {
@@ -597,6 +834,7 @@
       body: JSON.stringify({
         query: query,
         context: context,
+        conversationHistory: conversationContext,
         apiType: CONFIG.apiType
       })
     });
@@ -738,7 +976,7 @@ ${context}`;
   }
 
   // Add user message to chat
-  function addUserMessage(message) {
+  function addUserMessage(message, scroll = true) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'chatbot-message user-message';
     messageDiv.innerHTML = `
@@ -753,7 +991,51 @@ ${context}`;
       </div>
     `;
     chatbotMessages.appendChild(messageDiv);
-    scrollToBottom();
+    if (scroll) scrollToBottom();
+  }
+
+  // Add bot message without typing effect (for restoring history)
+  function addBotMessageSync(message, references = []) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'chatbot-message bot-message';
+
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+
+    const messageP = document.createElement('p');
+    messageP.textContent = message;
+
+    messageDiv.innerHTML = `
+      <div class="message-avatar bot-avatar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <circle cx="9" cy="10" r="1.5"/>
+          <circle cx="15" cy="10" r="1.5"/>
+          <path d="M12 17.5c-2.33 0-4.32-1.45-5.12-3.5h10.24c-.8 2.05-2.79 3.5-5.12 3.5z"/>
+        </svg>
+      </div>
+    `;
+    messageDiv.appendChild(contentDiv);
+    contentDiv.appendChild(messageP);
+
+    // Add references if available
+    if (references && references.length > 0) {
+      const referencesDiv = document.createElement('div');
+      referencesDiv.className = 'message-references';
+      referencesDiv.innerHTML = '<strong>📚 References:</strong>';
+
+      const refList = document.createElement('ul');
+      references.forEach(ref => {
+        const li = document.createElement('li');
+        li.innerHTML = `<a href="${escapeHtml(ref.url)}" target="_blank">${escapeHtml(ref.title)}</a>`;
+        refList.appendChild(li);
+      });
+
+      referencesDiv.appendChild(refList);
+      contentDiv.appendChild(referencesDiv);
+    }
+
+    chatbotMessages.appendChild(messageDiv);
   }
 
   // Add bot message to chat with typing effect

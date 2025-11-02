@@ -376,7 +376,19 @@
   }
 }
 
-/* Suggestions */
+/* Suggestions (in messages area after bot response) */
+.chatbot-messages .chatbot-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  animation: messageSlideIn 0.3s ease;
+}
+
+/* Suggestions (bottom fixed area) */
 .chatbot-suggestions {
   padding: 12px 20px;
   background: white;
@@ -397,12 +409,15 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  border: none;
+  font-family: inherit;
 
   &:hover {
     background: #667eea;
     border-color: #667eea;
     color: white;
     transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
   }
 
   &:active {

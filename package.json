@@ -17,6 +17,7 @@
   },
   "scripts": {
     "generate-embeddings": "node generate-embeddings.js",
+    "watch-embeddings": "node watch-and-generate.js",
     "build": "bundle exec jekyll build && npm run generate-embeddings",
     "lint": "npm-run-all --parallel --continue-on-error lint:*",
     "lint:css": "stylelint '**/*.scss'",

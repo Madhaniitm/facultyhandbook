@@ -32,7 +32,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { query, context, apiType = 'gemini' } = req.body;
+    const { query, context, conversationHistory = '', apiType = 'gemini' } = req.body;
 
     // Validate input
     if (!query || !context) {
@@ -56,11 +56,11 @@ export default async function handler(req, res) {
 
     // Call appropriate AI service
     if (apiType === 'gemini') {
-      answer = await callGemini(query, context, apiKey);
+      answer = await callGemini(query, context, apiKey, conversationHistory);
     } else if (apiType === 'openai') {
-      answer = await callOpenAI(query, context, apiKey);
+      answer = await callOpenAI(query, context, apiKey, conversationHistory);
     } else if (apiType === 'claude') {
-      answer = await callClaude(query, context, apiKey);
+      answer = await callClaude(query, context, apiKey, conversationHistory);
     } else {
       return res.status(400).json({ error: 'Invalid API type' });
     }
@@ -79,21 +79,25 @@ export default async function handler(req, res) {
 /**
  * Call Google Gemini API
  */
-async function callGemini(query, context, apiKey) {
+async function callGemini(query, context, apiKey, conversationHistory = '') {
   const prompt = `You are a helpful assistant for the IIT Madras Faculty Handbook.
 
 IMPORTANT RULES:
-1. Only use information from the provided context below
-2. If the answer is not in the context, say so clearly
-3. Be concise, helpful, and conversational
-4. Do not make up or assume information not in the context
+1. Provide DETAILED and COMPREHENSIVE answers (3-5 sentences minimum)
+2. Include specific examples and explanations
+3. Only use information from the provided context below
+4. If the answer is not in the context, say so clearly
+5. Be conversational and helpful
+6. If there's conversation history, use it to understand follow-up questions
+
+${conversationHistory ? `Previous Conversation:\n${conversationHistory}\n\n` : ''}
 
 Context from Faculty Handbook:
 ${context}
 
 User Question: ${query}
 
-Answer:`;
+Provide a detailed answer:`;
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -104,7 +108,7 @@ Answer:`;
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 500,
+          maxOutputTokens: 800,
           topP: 0.8,
           topK: 10
         },
