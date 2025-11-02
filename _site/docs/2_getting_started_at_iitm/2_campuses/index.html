@@ -161,4 +161,36 @@
 </div>
 </div>
 <div class="search-overlay"></div>
-</div><script src="https://cdn.jsdelivr.net/npm/mermaid@9.1.6/dist/mermaid.min.js"></script> <script> var config = {} ; mermaid.initialize(config); window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid')); </script>
+</div><script src="https://cdn.jsdelivr.net/npm/mermaid@9.1.6/dist/mermaid.min.js"></script> <script> var config = {} ; mermaid.initialize(config); window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid')); </script><div id="faculty-chatbot" class="chatbot-container"> <button id="chatbot-toggle" class="chatbot-toggle" aria-label="Toggle Faculty Assistant"> <svg class="chatbot-icon" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path> </svg> <svg class="close-icon" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line> </svg> </button><div id="chatbot-window" class="chatbot-window">
+<div class="chatbot-header">
+<div class="chatbot-header-content"> <svg class="chatbot-header-icon" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"></path> <circle cx="9" cy="10" r="1.5"></circle> <circle cx="15" cy="10" r="1.5"></circle><path d="M12 17.5c-2.33 0-4.32-1.45-5.12-3.5h10.24c-.8 2.05-2.79 3.5-5.12 3.5z"></path> </svg><div>
+<h3 class="chatbot-title">Faculty Assistant</h3>
+<p class="chatbot-subtitle">Ask me about the handbook</p>
+</div>
+</div>
+<button id="chatbot-close" class="chatbot-close-btn" aria-label="Close chat"> <svg viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line> </svg> </button>
+</div>
+<div id="chatbot-messages" class="chatbot-messages"><div class="chatbot-message bot-message">
+<div class="message-avatar bot-avatar"> <svg viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <circle cx="12" cy="12" r="10"></circle> <circle cx="9" cy="10" r="1.5"></circle> <circle cx="15" cy="10" r="1.5"></circle><path d="M12 17.5c-2.33 0-4.32-1.45-5.12-3.5h10.24c-.8 2.05-2.79 3.5-5.12 3.5z"></path> </svg>
+</div>
+<div class="message-content">
+<p>Hello! I'm your Faculty Handbook Assistant. I can help you find information about:</p>
+<ul>
+<li>Getting started at IITM</li>
+<li>Course work and teaching</li>
+<li>Research activities</li>
+<li>Leave and travel policies</li>
+<li>Services and facilities</li>
+<li>Rules and regulations</li>
+</ul>
+<p>Ask me anything from the handbook!</p>
+</div>
+</div></div>
+<div id="chatbot-suggestions" class="chatbot-suggestions"> <button class="suggestion-chip" data-question="How do I apply for leave?">How do I apply for leave?</button> <button class="suggestion-chip" data-question="What are the research grant procedures?">Research grant procedures</button> <button class="suggestion-chip" data-question="How to book campus facilities?">Book campus facilities</button>
+</div>
+<div class="chatbot-input-container"> <textarea id="chatbot-input" class="chatbot-input" placeholder="Type your question here..." rows="1" aria-label="Chat input"></textarea> <button id="chatbot-send" class="chatbot-send-btn" aria-label="Send message"> <svg viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon> </svg> </button>
+</div>
+<div class="chatbot-footer"> <small>Powered by AI • Answers are based on handbook content</small>
+</div>
+</div>
+</div><script src="/fachandbook/assets/js/chatbot.js"></script><meta name="chatbot-api-endpoint" content="https://faculty-handbook-89uvn4s9h-madhaniitms-projects.vercel.app/api/chat"><meta name="chatbot-use-proxy" content="true"><meta name="chatbot-api-type" content="gemini">

@@ -1,0 +1,32 @@
+# Netlify Configuration for Faculty Handbook
+[build]
+  publish = "_site"
+  command = "bundle exec jekyll build"
+
+# Serverless Functions Configuration
+[functions]
+  directory = "api"
+  node_bundler = "esbuild"
+
+# Headers for security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# API endpoint headers (CORS)
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "POST, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"
+
+# Redirects (if needed)
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/api/:splat"
+  status = 200

@@ -224,4 +224,24 @@ sass:
   quiet_deps: true # https://github.com/just-the-docs/just-the-docs/issues/1541
   silence_deprecations: ['import'] # https://github.com/just-the-docs/just-the-docs/issues/1607
 
+# AI Chatbot Configuration
+chatbot:
+  enabled: true
+
+  # SECURE CONFIGURATION - API Proxy on Vercel, Site on IITM Server
+  #
+  # Production API endpoint (DEPLOYED!):
+  api_endpoint: "https://faculty-handbook-89uvn4s9h-madhaniitms-projects.vercel.app/api/chat"
+  #
+  # For local testing (comment out api_endpoint above and uncomment below):
+  # api_endpoint: "http://localhost:3000/api/chat"
+
+  api_type: "gemini"
+
+  # NOTE:
+  # - API key is stored in Vercel environment variables (SECURE!)
+  # - Your Jekyll site stays on IITM server
+  # - Only the API proxy runs on Vercel
+  # - NEVER put your API key directly in this file!
+
 

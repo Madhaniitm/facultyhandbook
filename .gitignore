@@ -28,3 +28,11 @@ node_modules
 *.gem
 .bundle
 .ruby-version
+
+# Security: Never commit API keys or secrets!
+.env
+.env.local
+.env.*.local
+.env.example
+_config_secret.yml
+.vercel

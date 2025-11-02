@@ -1,0 +1,57 @@
+# Vercel Ignore File
+# Only deploy the API folder, ignore everything else
+
+# Ignore Jekyll source files
+_site/
+_layouts/
+_includes/
+_sass/
+_data/
+docs/
+assets/
+fixtures/
+lib/
+bin/
+
+# Ignore Ruby files
+*.gem
+Gemfile
+Gemfile.lock
+*.gemspec
+Rakefile
+.ruby-version
+
+# Ignore config files
+_config.yml
+*.md
+!api/*.md
+
+# Ignore documentation
+*.md
+CHATBOT_*.md
+DEPLOY_*.md
+SECURE_*.md
+AI_*.md
+TEST_*.md
+README.md
+
+# Ignore development files
+node_modules/
+.bundle/
+vendor/
+.jekyll-cache/
+.jekyll-metadata
+.sass-cache/
+
+# Ignore Git files
+.git/
+.gitignore
+
+# Ignore environment files (use Vercel env vars instead)
+.env
+.env.*
+
+# Keep these files for API deployment
+!api/
+!vercel-api-only.json
+!package.json

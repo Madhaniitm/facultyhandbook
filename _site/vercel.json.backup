@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "name": "faculty-handbook",
+  "builds": [
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    }
+  ],
+  "env": {
+    "CHATBOT_API_KEY": "@chatbot-api-key"
+  }
+}
