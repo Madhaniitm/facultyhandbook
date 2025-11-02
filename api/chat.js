@@ -80,6 +80,21 @@ export default async function handler(req, res) {
  * Call Google Gemini API
  */
 async function callGemini(query, context, apiKey, conversationHistory = '') {
+  // Format context array into readable text
+  const formattedContext = Array.isArray(context)
+    ? context.map(item => `${item.title || 'Content'}:\n${item.content || item}`).join('\n\n')
+    : context;
+
+  // Format conversation history
+  let formattedHistory = '';
+  if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
+    formattedHistory = conversationHistory
+      .map(turn => `${turn.role === 'user' ? 'User' : 'Assistant'}: ${turn.parts[0].text}`)
+      .join('\n');
+  } else if (conversationHistory && typeof conversationHistory === 'string') {
+    formattedHistory = conversationHistory;
+  }
+
   const prompt = `You are a helpful assistant for the IIT Madras Faculty Handbook.
 
 IMPORTANT RULES:
@@ -90,10 +105,10 @@ IMPORTANT RULES:
 5. Be conversational and helpful
 6. If there's conversation history, use it to understand follow-up questions
 
-${conversationHistory ? `Previous Conversation:\n${conversationHistory}\n\n` : ''}
+${formattedHistory ? `Previous Conversation:\n${formattedHistory}\n\n` : ''}
 
 Context from Faculty Handbook:
-${context}
+${formattedContext}
 
 User Question: ${query}
 

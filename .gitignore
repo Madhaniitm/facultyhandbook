@@ -36,3 +36,4 @@ node_modules
 .env.example
 _config_secret.yml
 .vercel
+nul
