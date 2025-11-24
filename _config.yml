@@ -231,7 +231,7 @@ chatbot:
   # SECURE CONFIGURATION - API Proxy on Vercel, Site on IITM Server
   #
   # Production API endpoint (DEPLOYED!):
-  api_endpoint: "https://api-jem00k1d1-madhaniitms-projects.vercel.app/api/chat"
+  api_endpoint: "https://api-54e9f67td-madhaniitms-projects.vercel.app/api/chat"
   #
   # For local testing (comment out api_endpoint above and uncomment below):
   # api_endpoint: "http://localhost:3000/api/chat"

@@ -239,11 +239,13 @@
   border-radius: 12px;
   font-size: 14px;
   line-height: 1.5;
+  position: relative;
 
   .bot-message & {
     background: white;
     border-bottom-left-radius: 4px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    padding-right: 48px; // Make room for speaker button
   }
 
   .user-message & {
@@ -493,6 +495,99 @@
   }
 }
 
+/* Voice Input Button */
+.chatbot-voice-btn {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #667eea;
+  background: white;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #f3f4f6;
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  &.listening {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    animation: pulse 1.5s ease-in-out infinite;
+
+    svg {
+      color: white;
+    }
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+    color: #667eea;
+    transition: color 0.2s ease;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(102, 126, 234, 0);
+  }
+}
+
+/* Speaker Button (TTS) */
+.speaker-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+
+  &:hover {
+    opacity: 1;
+    background: rgba(102, 126, 234, 0.2);
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  &.speaking {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    animation: pulse 1.5s ease-in-out infinite;
+
+    svg {
+      color: white;
+    }
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+    color: #667eea;
+    transition: color 0.2s ease;
+  }
+}
+
 /* Footer */
 .chatbot-footer {
   padding: 8px 20px;
@@ -511,10 +606,17 @@
     right: 0;
     left: 0;
     width: 100%;
-    height: 100vh;
+    height: 95vh;
     max-width: 100%;
-    max-height: 100vh;
-    border-radius: 0;
+    max-height: 95vh;
+    border-radius: 16px 16px 0 0;
+
+    // Ensure close button is always visible
+    .chatbot-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
   }
 
   .chatbot-toggle {

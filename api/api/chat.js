@@ -14,7 +14,8 @@ export default async function handler(req, res) {
   ];
 
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
+  // Allow all Vercel deployments or specific allowed origins
+  if (allowedOrigins.includes(origin) || (origin && origin.includes('vercel.app'))) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
 
@@ -81,9 +82,19 @@ export default async function handler(req, res) {
  */
 async function callGemini(query, context, apiKey, conversationHistory = '') {
   // Format context array into readable text
-  const formattedContext = Array.isArray(context)
-    ? context.map(item => `${item.title || 'Content'}:\n${item.content || item}`).join('\n\n')
-    : context;
+  let formattedContext;
+  if (Array.isArray(context)) {
+    formattedContext = context.map(item => {
+      // Handle both string items and object items
+      if (typeof item === 'string') {
+        return item;
+      } else {
+        return `${item.title || 'Content'}:\n${item.content || item}`;
+      }
+    }).join('\n\n');
+  } else {
+    formattedContext = context;
+  }
 
   // Format conversation history
   let formattedHistory = '';
@@ -98,12 +109,28 @@ async function callGemini(query, context, apiKey, conversationHistory = '') {
   const prompt = `You are a helpful assistant for the IIT Madras Faculty Handbook.
 
 IMPORTANT RULES:
-1. Provide DETAILED and COMPREHENSIVE answers (3-5 sentences minimum)
-2. Include specific examples and explanations
-3. Only use information from the provided context below
-4. If the answer is not in the context, say so clearly
-5. Be conversational and helpful
-6. If there's conversation history, use it to understand follow-up questions
+1. Provide COMPLETE but CONCISE answers (2-4 sentences maximum)
+2. EXTRACT only the relevant information asked - DO NOT copy entire tables or full sections
+3. If user asks about one specific item (e.g., "medical leave"), give ONLY that item's details, not all items
+4. Always finish your sentences - NEVER end mid-sentence
+5. Be conversational and helpful - summarize key points clearly
+6. Only use information from the provided context below
+7. If the answer is not in the context, say so clearly
+8. CITE YOUR SOURCES: When mentioning information, cite the reference number like [1], [2], [3] that you got it from
+9. Each fact or claim MUST have a citation - example: "There are multiple associations at IIT Madras[1], including the Film Club[2] and Staff Club[3]."
+
+CITATION REQUIREMENTS:
+- ALWAYS add [1], [2], [3] etc. after facts to show which reference you used
+- You can cite the same reference multiple times if needed
+- If combining info from multiple sources, cite all: "Housing options include Type I and Type II quarters[1][2]."
+- The context below has numbered references [1], [2], [3] etc. - use these exact numbers in your answer
+
+HANDLING FOLLOW-UP QUESTIONS:
+- When the user asks follow-up questions like "tell me more", "what about this", "elaborate on that", etc., ALWAYS refer to the Previous Conversation below to understand what they're asking about
+- Use pronouns like "this", "that", "it", "they" by referring to the most recent topic discussed in the conversation history
+- If the current question contains words like "this", "that", "more", "elaborate", check the Previous Conversation to understand the context
+- Build upon previous answers and maintain conversation continuity
+- NEVER say you don't have access to previous conversation - the Previous Conversation section below contains everything discussed
 
 ${formattedHistory ? `Previous Conversation:\n${formattedHistory}\n\n` : ''}
 
@@ -112,7 +139,18 @@ ${formattedContext}
 
 User Question: ${query}
 
-Provide a detailed answer:`;
+${formattedHistory ? 'Remember: Use the Previous Conversation above to understand any follow-up references like "this", "that", "more details", etc.\n\n' : ''}CRITICAL INSTRUCTIONS:
+1. You MUST add citation numbers [1], [2], [3] after EVERY fact
+2. Do NOT copy entire tables - EXTRACT only what's asked
+3. Keep answer to 2-4 sentences maximum
+
+GOOD Example (user asks "medical leave"):
+"Medical leave allows faculty to take up to 20 days annually for health issues[1]. It requires medical certification for absences over 5 days[1]."
+
+BAD Example (DO NOT DO THIS):
+[copies entire leave table with all 10 leave types]
+
+Now provide your answer with inline citations [1], [2], [3]:`;
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -123,15 +161,14 @@ Provide a detailed answer:`;
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 800,
           topP: 0.8,
           topK: 10
         },
         safetySettings: [
-          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" }
+          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
         ]
       })
     }
@@ -139,10 +176,18 @@ Provide a detailed answer:`;
 
   if (!response.ok) {
     const error = await response.json();
+    console.error('Gemini API error:', JSON.stringify(error));
     throw new Error(`Gemini API error: ${JSON.stringify(error)}`);
   }
 
   const data = await response.json();
+  console.log('Gemini API response structure:', JSON.stringify(data).substring(0, 200));
+
+  if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+    console.error('Invalid Gemini response structure:', JSON.stringify(data));
+    throw new Error('Invalid response structure from Gemini');
+  }
+
   return data.candidates[0].content.parts[0].text;
 }
 
