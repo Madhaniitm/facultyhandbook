@@ -228,12 +228,12 @@ sass:
 chatbot:
   enabled: true
 
-  # SECURE CONFIGURATION - API Proxy on Vercel, Site on IITM Server
+  # SECURE CONFIGURATION - Use relative path for same-deployment API
   #
-  # Production API endpoint (DEPLOYED!):
-  api_endpoint: "https://api-54e9f67td-madhaniitms-projects.vercel.app/api/chat"
+  # Production API endpoint (relative path - works on any deployment):
+  api_endpoint: "/api/api/chat"
   #
-  # For local testing (comment out api_endpoint above and uncomment below):
+  # For local testing with separate API server:
   # api_endpoint: "http://localhost:3000/api/chat"
 
   api_type: "gemini"

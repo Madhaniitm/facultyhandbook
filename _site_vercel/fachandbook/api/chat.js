@@ -81,10 +81,24 @@ export default async function handler(req, res) {
  * Call Google Gemini API
  */
 async function callGemini(query, context, apiKey, conversationHistory = '') {
-  // Format context array into readable text
-  const formattedContext = Array.isArray(context)
-    ? context.map(item => `${item.title || 'Content'}:\n${item.content || item}`).join('\n\n')
-    : context;
+  // Format context array into readable text with doc field
+  let formattedContext = '';
+  if (Array.isArray(context)) {
+    formattedContext = context
+      .map((item, idx) => {
+        const docLabel = item.doc ? `[${item.doc}] ` : '';
+        const title = item.title || 'Content';
+        const content = item.content || item;
+        return `${idx + 1}. ${docLabel}${title}:\n${content}`;
+      })
+      .join('\n\n');
+  } else if (typeof context === 'string') {
+    // Already formatted as string, use as-is
+    formattedContext = context;
+  } else {
+    // Try to stringify it
+    formattedContext = JSON.stringify(context);
+  }
 
   // Format conversation history
   let formattedHistory = '';

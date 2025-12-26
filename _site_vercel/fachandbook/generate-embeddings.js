@@ -13,17 +13,25 @@ console.log('🔍 Semantic Search Embedding Generator (Node.js)');
 console.log('='.repeat(60));
 
 async function loadSearchData() {
-  const searchDataPath = path.join('_site', 'assets', 'js', 'search-data.json');
+  // Use the enriched knowledge base instead of raw search-data.json
+  const searchDataPath = path.join('assets', 'js', 'search-knowledge.json');
 
   if (!fs.existsSync(searchDataPath)) {
-    console.error('❌ Error: search-data.json not found.');
-    console.error('   Run "bundle exec jekyll build" first!');
+    console.error('❌ Error: search-knowledge.json not found.');
+    console.error('   Run "node enrich-knowledge.js" first!');
     return null;
   }
 
   const data = JSON.parse(fs.readFileSync(searchDataPath, 'utf-8'));
-  console.log(`\n✓ Loaded ${Object.keys(data).length} pages from search-data.json`);
-  return data;
+  console.log(`\n✓ Loaded ${data.length} pages from search-knowledge.json`);
+
+  // Convert array to object format for compatibility
+  const dataObj = {};
+  data.forEach(page => {
+    dataObj[page.id] = page;
+  });
+
+  return dataObj;
 }
 
 async function generateEmbeddings(searchData) {
@@ -44,8 +52,9 @@ async function generateEmbeddings(searchData) {
   for (let i = 0; i < entries.length; i++) {
     const [pageId, page] = entries[i];
 
-    // Combine title and content for better semantic understanding
-    const text = `${page.title || ''} ${page.content || ''}`;
+    // Combine doc, title and content for better semantic understanding
+    // Doc field helps identify the section/category of the content
+    const text = `${page.doc || ''} ${page.title || ''} ${page.content || ''}`;
 
     // Generate embedding
     const output = await extractor(text, { pooling: 'mean', normalize: true });
@@ -53,8 +62,10 @@ async function generateEmbeddings(searchData) {
 
     embeddingsData.push({
       id: pageId,
+      doc: page.doc || '',
       title: page.title || '',
       url: page.url || '',
+      relUrl: page.relUrl || '',
       content: page.content || '',
       heading: page.heading || '',
       embedding: embedding

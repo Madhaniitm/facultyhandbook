@@ -25,6 +25,7 @@
 
   // State
   let searchData = null;
+  let knowledgeData = null; // Enriched knowledge base for chatbot fallback
   let embeddingsData = null;
   let embeddingPipeline = null;
   let conversationHistory = [];
@@ -54,6 +55,9 @@
   function init() {
     // Load search data (reuse existing Jekyll search index)
     loadSearchData();
+
+    // Load enriched knowledge data for chatbot fallback
+    loadKnowledgeData();
 
     // Load embeddings for semantic search
     // Note: initEmbeddingModel() is called AFTER embeddings load (inside loadEmbeddings)
@@ -361,6 +365,32 @@ Please provide a clear, complete version of this question that includes the spec
         console.error('[Chatbot] Failed to load search data:', error);
         console.error('[Chatbot] Attempted URL:', searchDataUrl);
         addBotMessage('Sorry, I encountered an error loading the handbook content. Please make sure the site is fully built with "bundle exec jekyll build".');
+      });
+  }
+
+  // Load enriched knowledge base for chatbot fallback
+  function loadKnowledgeData() {
+    const knowledgeDataUrl = window.location.origin + '/assets/js/search-knowledge.json';
+
+    console.log('[Chatbot] Loading knowledge data from:', knowledgeDataUrl);
+
+    fetch(knowledgeDataUrl)
+      .then(response => {
+        if (!response.ok) {
+          console.warn('[Chatbot] Knowledge data not found, will use search-data for fallback');
+          return null;
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (data) {
+          knowledgeData = data;
+          console.log('[Chatbot] Knowledge data loaded:', data.length, 'entries');
+        }
+      })
+      .catch(error => {
+        console.error('[Chatbot] Failed to load knowledge data:', error);
+        console.warn('[Chatbot] Will use search-data for fallback instead');
       });
   }
 
@@ -911,14 +941,17 @@ Please provide a clear, complete version of this question that includes the spec
   // Search content using keyword matching and relevance scoring
   // Hybrid search: Combines semantic (embedding-based) + keyword search
   async function searchContent(query) {
+    // Use knowledgeData if available for better quality content
+    const useKnowledge = knowledgeData && knowledgeData.length > 0;
+
     // If embeddings available, use hybrid search
     if (embeddingsData && embeddingPipeline) {
       console.log('[Chatbot] Using HYBRID SEARCH (semantic + keyword)');
-      return await hybridSearch(query);
+      return await hybridSearch(query, useKnowledge);
     } else {
       console.warn('[Chatbot] Embeddings not loaded! Using fallback KEYWORD SEARCH only');
       console.warn('[Chatbot] embeddingsData:', !!embeddingsData, 'embeddingPipeline:', !!embeddingPipeline);
-      return keywordSearch(query);
+      return useKnowledge ? searchInKnowledgeData(query) : keywordSearch(query);
     }
   }
 
@@ -1002,10 +1035,93 @@ Please provide a clear, complete version of this question that includes the spec
     return results.slice(0, CONFIG.maxSearchResults);
   }
 
+  // Search in enriched knowledge data (used for chatbot fallback)
+  function searchInKnowledgeData(query) {
+    const queryLower = query.toLowerCase();
+    const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2);
+
+    const results = [];
+
+    // Search through enriched knowledge data (array format)
+    for (const page of knowledgeData) {
+      const title = (page.title || '').toLowerCase();
+      const content = (page.content || '').toLowerCase();
+      const doc = (page.doc || '').toLowerCase();
+      const url = page.url || '';
+      const relUrl = page.relUrl || '';
+
+      // Calculate relevance score
+      let score = 0;
+
+      // Exact phrase match (highest weight)
+      if (title.includes(queryLower) || content.includes(queryLower) || doc.includes(queryLower)) {
+        score += 10;
+      }
+
+      // Doc (category) matches - high weight since user might search by category
+      if (doc.includes(queryLower)) {
+        score += 5;
+      }
+
+      // Title keyword matches
+      for (const word of queryWords) {
+        if (title.includes(word)) {
+          score += 3;
+        }
+        if (doc.includes(word)) {
+          score += 2;
+        }
+      }
+
+      // Content keyword matches
+      for (const word of queryWords) {
+        // Escape special regex characters
+        const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp('\\b' + escapedWord + '\\b', 'gi');
+        const titleMatches = title.match(regex);
+        const contentMatches = content.match(regex);
+        const docMatches = doc.match(regex);
+
+        if (titleMatches) {
+          score += titleMatches.length * 1.5;
+        }
+        if (contentMatches) {
+          score += contentMatches.length * 0.5;
+        }
+        if (docMatches) {
+          score += docMatches.length * 1.0;
+        }
+      }
+
+      // Store result if relevant
+      if (score > CONFIG.minRelevanceScore) {
+        results.push({
+          id: page.id,
+          doc: page.doc,
+          title: page.title,
+          content: page.content,
+          url: url,
+          relUrl: relUrl,
+          score: score,
+          preview: generatePreview(page.content, queryWords)
+        });
+      }
+    }
+
+    // Sort by relevance score
+    results.sort((a, b) => b.score - a.score);
+
+    // Return top results
+    return results.slice(0, CONFIG.maxSearchResults);
+  }
+
   // Multi-stage hybrid search with query preprocessing
-  async function hybridSearch(query) {
+  async function hybridSearch(query, useKnowledge = false) {
     try {
       console.log('[Chatbot] Multi-stage search started for:', query);
+      if (useKnowledge) {
+        console.log('[Chatbot] Using enriched knowledge data for search results');
+      }
 
       // STAGE 1: Query Preprocessing and Expansion
       const processedQuery = preprocessQuery(query);
@@ -1024,18 +1140,27 @@ Please provide a clear, complete version of this question that includes the spec
         // Keywords are more reliable for specific handbook queries
         const combinedScore = (keywordScore * 0.6) + (semanticScore * 0.3) + (exactMatchBonus * 0.1);
 
+        // Use enriched content from knowledgeData if available
+        let contentToUse = page.content;
+        if (useKnowledge && knowledgeData) {
+          const knowledgePage = knowledgeData.find(p => p.id === page.id);
+          if (knowledgePage && knowledgePage.content) {
+            contentToUse = knowledgePage.content;
+          }
+        }
+
         return {
           id: page.id,
           doc: page.doc,
           title: page.title,
-          content: page.content,
+          content: contentToUse,
           url: page.url,
           relUrl: page.relUrl,
           score: combinedScore,
           semanticScore: semanticScore,
           keywordScore: keywordScore,
           exactMatchBonus: exactMatchBonus,
-          preview: generatePreview(page.content, processedQuery.original.toLowerCase().split(/\s+/))
+          preview: generatePreview(contentToUse, processedQuery.original.toLowerCase().split(/\s+/))
         };
       });
 
@@ -1075,7 +1200,7 @@ Please provide a clear, complete version of this question that includes the spec
 
     } catch (error) {
       console.error('[Chatbot] Hybrid search error, falling back to keyword search:', error);
-      return keywordSearch(query);
+      return useKnowledge && knowledgeData ? searchInKnowledgeData(query) : keywordSearch(query);
     }
   }
 
@@ -1331,6 +1456,9 @@ Please provide a clear, complete version of this question that includes the spec
 
   // Generate response using local rule-based approach
   async function generateLocalResponse(query, relevantContent) {
+    // relevantContent already contains enriched knowledge data if available
+    // (set by searchContent function)
+
     // Build response from most relevant content
     const topResult = relevantContent[0];
 

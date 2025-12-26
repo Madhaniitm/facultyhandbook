@@ -109,12 +109,21 @@ async function callGemini(query, context, apiKey, conversationHistory = '') {
   const prompt = `You are a helpful assistant for the IIT Madras Faculty Handbook.
 
 IMPORTANT RULES:
-1. Provide COMPLETE answers with necessary details (2-4 sentences)
-2. Always finish your sentences - NEVER end mid-sentence
-3. Be concise but comprehensive - summarize key points clearly
-4. Only use information from the provided context below
-5. If the answer is not in the context, say so clearly
-6. Be conversational and helpful
+1. Provide COMPLETE but CONCISE answers (2-4 sentences maximum)
+2. EXTRACT only the relevant information asked - DO NOT copy entire tables or full sections
+3. If user asks about one specific item (e.g., "medical leave"), give ONLY that item's details, not all items
+4. Always finish your sentences - NEVER end mid-sentence
+5. Be conversational and helpful - summarize key points clearly
+6. Only use information from the provided context below
+7. If the answer is not in the context, say so clearly
+8. CITE YOUR SOURCES: When mentioning information, cite the reference number like [1], [2], [3] that you got it from
+9. Each fact or claim MUST have a citation - example: "There are multiple associations at IIT Madras[1], including the Film Club[2] and Staff Club[3]."
+
+CITATION REQUIREMENTS:
+- ALWAYS add [1], [2], [3] etc. after facts to show which reference you used
+- You can cite the same reference multiple times if needed
+- If combining info from multiple sources, cite all: "Housing options include Type I and Type II quarters[1][2]."
+- The context below has numbered references [1], [2], [3] etc. - use these exact numbers in your answer
 
 HANDLING FOLLOW-UP QUESTIONS:
 - When the user asks follow-up questions like "tell me more", "what about this", "elaborate on that", etc., ALWAYS refer to the Previous Conversation below to understand what they're asking about
@@ -130,7 +139,18 @@ ${formattedContext}
 
 User Question: ${query}
 
-${formattedHistory ? 'Remember: Use the Previous Conversation above to understand any follow-up references like "this", "that", "more details", etc.\n\n' : ''}Provide a concise, complete answer (2-4 sentences with key details):`;
+${formattedHistory ? 'Remember: Use the Previous Conversation above to understand any follow-up references like "this", "that", "more details", etc.\n\n' : ''}CRITICAL INSTRUCTIONS:
+1. You MUST add citation numbers [1], [2], [3] after EVERY fact
+2. Do NOT copy entire tables - EXTRACT only what's asked
+3. Keep answer to 2-4 sentences maximum
+
+GOOD Example (user asks "medical leave"):
+"Medical leave allows faculty to take up to 20 days annually for health issues[1]. It requires medical certification for absences over 5 days[1]."
+
+BAD Example (DO NOT DO THIS):
+[copies entire leave table with all 10 leave types]
+
+Now provide your answer with inline citations [1], [2], [3]:`;
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
